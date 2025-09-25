@@ -22,7 +22,7 @@ export const ALLOW_DELETE_OPERATION =
 export const ALLOW_DDL_OPERATION = process.env.ALLOW_DDL_OPERATION === "true";
 
 // Transaction mode control
-export const MYSQL_DISABLE_READ_ONLY_TRANSACTIONS = 
+export const MYSQL_DISABLE_READ_ONLY_TRANSACTIONS =
   process.env.MYSQL_DISABLE_READ_ONLY_TRANSACTIONS === "true";
 
 // Schema-specific permissions
@@ -40,6 +40,10 @@ export const SCHEMA_DDL_PERMISSIONS: SchemaPermissions = parseSchemaPermissions(
 export const IS_REMOTE_MCP = process.env.IS_REMOTE_MCP === "true";
 export const REMOTE_SECRET_KEY = process.env.REMOTE_SECRET_KEY || "";
 export const PORT = process.env.PORT || 3000;
+
+// Server identification configuration
+export const SERVER_NAME = process.env.SERVER_NAME || "MySQL MCP Server";
+export const TOOL_NAME = process.env.TOOL_NAME || "mysql_query";
 
 // Check if we're in multi-DB mode (no specific DB set)
 export const isMultiDbMode =

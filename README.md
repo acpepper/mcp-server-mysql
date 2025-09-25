@@ -1,9 +1,9 @@
 # MCP Server for MySQL - Claude Code Edition
 
-> **🚀 This is a modified version optimized for Claude Code with SSH tunnel support**  
-> **Original Author:** [@benborla29](https://github.com/benborla)  
-> **Original Repository:** https://github.com/benborla/mcp-server-mysql  
-> **License:** MIT  
+> **🚀 This is a modified version optimized for Claude Code with SSH tunnel support**
+> **Original Author:** [@benborla29](https://github.com/benborla)
+> **Original Repository:** https://github.com/benborla/mcp-server-mysql
+> **License:** MIT
 
 # MCP Server for MySQL based on NodeJS
 [![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/benborla/mcp-server-mysql)](https://archestra.ai/mcp-catalog/benborla__mcp-server-mysql)
@@ -535,6 +535,53 @@ For more control over the MCP server's behavior, you can use these advanced conf
 - `IS_REMOTE_MCP`: Enable remote MCP mode (default: "false")
 - `REMOTE_SECRET_KEY`: Secret key for remote MCP authentication (default: ""). If not provided, remote MCP mode will be disabled.
 - `PORT`: Port number for the remote MCP server (default: 3000)
+
+### Server Identification Configuration
+
+- `SERVER_NAME`: Custom name for the MCP server (default: "MySQL MCP Server"). Useful when running multiple instances.
+- `TOOL_NAME`: Custom name for the SQL query tool (default: "mysql_query"). Useful when running multiple instances to avoid tool name conflicts.
+
+## Running Multiple Server Instances
+
+When running multiple instances of the MCP server (e.g., connecting to different databases), you need to configure unique server and tool names to avoid conflicts:
+
+```json
+{
+  "mcpServers": {
+    "mysql-analytics": {
+      "command": "node",
+      "args": ["/path/to/mcp-server-mysql/dist/index.js"],
+      "env": {
+        "MYSQL_HOST": "analytics.example.com",
+        "MYSQL_PORT": "3306",
+        "MYSQL_USER": "analytics_user",
+        "MYSQL_PASS": "analytics_password",
+        "MYSQL_DB": "analytics",
+        "SERVER_NAME": "MySQL Analytics Server",
+        "TOOL_NAME": "mysql_analytics_query"
+      }
+    },
+    "mysql-forms": {
+      "command": "node",
+      "args": ["/path/to/mcp-server-mysql/dist/index.js"],
+      "env": {
+        "MYSQL_HOST": "forms.example.com",
+        "MYSQL_PORT": "3306",
+        "MYSQL_USER": "forms_user",
+        "MYSQL_PASS": "forms_password",
+        "MYSQL_DB": "forms",
+        "SERVER_NAME": "MySQL Forms Server",
+        "TOOL_NAME": "mysql_forms_query"
+      }
+    }
+  }
+}
+```
+
+This configuration ensures each server instance has:
+- A unique server name for identification
+- A unique tool name to avoid conflicts when the agent calls tools
+- Separate database connections and credentials
 
 ## Multi-DB Mode
 

@@ -27,6 +27,8 @@ import {
   IS_REMOTE_MCP,
   REMOTE_SECRET_KEY,
   PORT,
+  SERVER_NAME,
+  TOOL_NAME,
 } from "./src/config/index.js";
 import {
   safeExit,
@@ -135,14 +137,14 @@ export default function createMcpServer({
   // Create the server instance
   const server = new Server(
     {
-      name: "MySQL MCP Server",
+      name: SERVER_NAME,
       version: process.env.npm_package_version || "1.0.0",
     },
     {
       capabilities: {
         resources: {},
         tools: {
-          mysql_query: {
+          [TOOL_NAME]: {
             description: toolDescription,
             inputSchema: {
               type: "object",
@@ -269,7 +271,7 @@ export default function createMcpServer({
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     try {
       log("info", "Handling CallToolRequest:", request.params.name);
-      if (request.params.name !== "mysql_query") {
+      if (request.params.name !== TOOL_NAME) {
         throw new Error(`Unknown tool: ${request.params.name}`);
       }
 
@@ -295,7 +297,7 @@ export default function createMcpServer({
     const toolsResponse = {
       tools: [
         {
-          name: "mysql_query",
+          name: TOOL_NAME,
           description: toolDescription,
           inputSchema: {
             type: "object",
