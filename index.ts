@@ -38,9 +38,9 @@ import {
   poolPromise,
 } from "./src/db/index.js";
 
-import path from 'path';
 import express, { Request, Response } from "express";
 import { fileURLToPath } from 'url';
+import { realpathSync } from 'fs';
 
 
 log("info", `Starting MySQL MCP server v${version}...`);
@@ -94,6 +94,14 @@ if (
   toolDescription += " (READ-ONLY)";
 }
 
+// Determine if we're in read-only mode (no write operations enabled)
+const isReadOnly = !(
+  ALLOW_INSERT_OPERATION ||
+  ALLOW_UPDATE_OPERATION ||
+  ALLOW_DELETE_OPERATION ||
+  ALLOW_DDL_OPERATION
+);
+
 // @INFO: Add debug logging for configuration
 log(
   "info",
@@ -114,6 +122,9 @@ log(
       password: config.mysql.password ? "******" : "not set",
       database: config.mysql.database || "MULTI_DB_MODE",
       ssl: process.env.MYSQL_SSL === "true" ? "enabled" : "disabled",
+      sslCA: process.env.MYSQL_SSL_CA || "not set",
+      sslCert: process.env.MYSQL_SSL_CERT || "not set",
+      sslKey: process.env.MYSQL_SSL_KEY || "not set",
       multiDbMode: isMultiDbMode ? "enabled" : "disabled",
     },
     null,
@@ -155,6 +166,13 @@ export default function createMcpServer({
                 },
               },
               required: ["sql"],
+            },
+            annotations: {
+              readOnlyHint: isReadOnly,
+              idempotentHint: isReadOnly,
+              destructiveHint: !isReadOnly,
+              openWorldHint: false,
+              title: "MySQL Query",
             },
           },
         },
@@ -309,6 +327,13 @@ export default function createMcpServer({
             },
             required: ["sql"],
           },
+          annotations: {
+            readOnlyHint: isReadOnly,
+            idempotentHint: isReadOnly,
+            destructiveHint: !isReadOnly,
+            openWorldHint: false,
+            title: "MySQL Query",
+          },
         },
       ],
     };
@@ -404,7 +429,7 @@ const isMainModule = () => {
     // Convert the `import.meta.url` (e.g., 'file:///path/to/file.js') to a system-standard absolute path.
     const currentModulePath = fileURLToPath(import.meta.url);
     // Resolve `process.argv[1]` (which can be a relative path) to a standard absolute path.
-    const mainScriptPath = path.resolve(process.argv[1]);
+    const mainScriptPath = realpathSync(process.argv[1]);
     // Compare the two standardized absolute paths.
     return currentModulePath === mainScriptPath;
   }

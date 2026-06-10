@@ -1,11 +1,64 @@
 import * as dotenv from "dotenv";
+import * as fs from "fs";
 import { SchemaPermissions } from "../types/index.js";
-import { parseSchemaPermissions } from "../utils/index.js";
+import { parseSchemaPermissions, parseMySQLConnectionString } from "../utils/index.js";
+
+/**
+ * Read and validate an SSL file (certificate, key, or CA) for SSL connections.
+ * @param filePath - Path to the SSL file (PEM format)
+ * @param label - Human-readable label for error messages (e.g. "CA certificate", "client certificate")
+ * @returns Buffer containing the file data
+ * @throws Error if file doesn't exist, is empty, or cannot be read
+ */
+function readSSLFile(filePath: string, label: string): Buffer {
+  try {
+    // Check if file exists and is readable
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`SSL ${label} file not found: ${filePath}`);
+    }
+
+    // Read the file
+    const data = fs.readFileSync(filePath);
+
+    // Basic validation - check it's not empty
+    if (data.length === 0) {
+      throw new Error(`SSL ${label} file is empty: ${filePath}`);
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      // Re-throw our custom errors as-is
+      if (error.message.startsWith('SSL ')) {
+        throw error;
+      }
+      // Wrap other errors (like permission denied)
+      throw new Error(`Failed to read SSL ${label}: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Read and validate CA certificate file for SSL connections.
+ * @param filePath - Path to the CA certificate file (PEM format)
+ * @returns Buffer containing the certificate data
+ * @throws Error if file doesn't exist, is empty, or cannot be read
+ */
+function readCACertificate(filePath: string): Buffer {
+  return readSSLFile(filePath, 'CA certificate');
+}
 
 export const MCP_VERSION = "2.0.2";
 
 // @INFO: Load environment variables from .env file
 dotenv.config();
+
+// @INFO: Parse connection string if provided
+// Connection string takes precedence over individual environment variables
+const connectionStringConfig = process.env.MYSQL_CONNECTION_STRING
+  ? parseMySQLConnectionString(process.env.MYSQL_CONNECTION_STRING)
+  : {};
 
 // @INFO: Update the environment setup to ensure database is correctly set
 if (process.env.NODE_ENV === "test" && !process.env.MYSQL_DB) {
@@ -46,8 +99,9 @@ export const SERVER_NAME = process.env.SERVER_NAME || "MySQL MCP Server";
 export const TOOL_NAME = process.env.TOOL_NAME || "mysql_query";
 
 // Check if we're in multi-DB mode (no specific DB set)
+const dbFromEnvOrConnString = connectionStringConfig.database || process.env.MYSQL_DB;
 export const isMultiDbMode =
-  !process.env.MYSQL_DB || process.env.MYSQL_DB.trim() === "";
+  !dbFromEnvOrConnString || dbFromEnvOrConnString.trim() === "";
 
 export const mcpConfig = {
   server: {
@@ -56,30 +110,69 @@ export const mcpConfig = {
     connectionTypes: ["stdio", "streamableHttp"],
   },
   mysql: {
-    // Use Unix socket if provided, otherwise use host/port
-    ...(process.env.MYSQL_SOCKET_PATH
+    // Use Unix socket if provided (connection string takes precedence), otherwise use host/port
+    ...(connectionStringConfig.socketPath || process.env.MYSQL_SOCKET_PATH
       ? {
-          socketPath: process.env.MYSQL_SOCKET_PATH,
+          socketPath: connectionStringConfig.socketPath || process.env.MYSQL_SOCKET_PATH,
         }
       : {
-          host: process.env.MYSQL_HOST || "127.0.0.1",
-          port: Number(process.env.MYSQL_PORT || "3306"),
+          host: connectionStringConfig.host || process.env.MYSQL_HOST || "127.0.0.1",
+          port: connectionStringConfig.port || Number(process.env.MYSQL_PORT || "3306"),
         }),
-    user: process.env.MYSQL_USER || "root",
+    user: connectionStringConfig.user || process.env.MYSQL_USER || "root",
     password:
-      process.env.MYSQL_PASS === undefined ? "" : process.env.MYSQL_PASS,
-    database: process.env.MYSQL_DB || undefined, // Allow undefined database for multi-DB mode
+      connectionStringConfig.password !== undefined
+        ? connectionStringConfig.password
+        : process.env.MYSQL_PASS === undefined
+          ? ""
+          : process.env.MYSQL_PASS,
+    database: connectionStringConfig.database || process.env.MYSQL_DB || undefined, // Allow undefined database for multi-DB mode
     connectionLimit: 10,
+    waitForConnections: true,
+    queueLimit: process.env.MYSQL_QUEUE_LIMIT ? parseInt(process.env.MYSQL_QUEUE_LIMIT, 10) : 100,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0,
+    connectTimeout: process.env.MYSQL_CONNECT_TIMEOUT ? parseInt(process.env.MYSQL_CONNECT_TIMEOUT, 10) : 10000,
     authPlugins: {
       mysql_clear_password: () => () =>
-        Buffer.from(process.env.MYSQL_PASS || "root"),
+        Buffer.from(
+          connectionStringConfig.password !== undefined
+            ? connectionStringConfig.password
+            : process.env.MYSQL_PASS !== undefined
+              ? process.env.MYSQL_PASS
+              : ""
+        ),
     },
     ...(process.env.MYSQL_SSL === "true"
       ? {
           ssl: {
             rejectUnauthorized:
               process.env.MYSQL_SSL_REJECT_UNAUTHORIZED === "true",
+            // Add CA certificate if provided
+            ...(process.env.MYSQL_SSL_CA
+              ? { ca: readCACertificate(process.env.MYSQL_SSL_CA) }
+              : {}),
+            // Add client certificate for mTLS if provided
+            ...(process.env.MYSQL_SSL_CERT
+              ? { cert: readSSLFile(process.env.MYSQL_SSL_CERT, 'client certificate') }
+              : {}),
+            // Add client private key for mTLS if provided
+            ...(process.env.MYSQL_SSL_KEY
+              ? { key: readSSLFile(process.env.MYSQL_SSL_KEY, 'client private key') }
+              : {}),
           },
+        }
+      : {}),
+    // Timezone configuration for date/time handling
+    ...(process.env.MYSQL_TIMEZONE
+      ? {
+          timezone: process.env.MYSQL_TIMEZONE,
+        }
+      : {}),
+    // Return date values as strings instead of JavaScript Date objects
+    ...(process.env.MYSQL_DATE_STRINGS === "true"
+      ? {
+          dateStrings: true,
         }
       : {}),
   },
@@ -87,3 +180,5 @@ export const mcpConfig = {
     schema: "schema",
   },
 };
+
+export { readCACertificate, readSSLFile };

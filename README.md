@@ -1,22 +1,24 @@
 # MCP Server for MySQL - Claude Code Edition
 
-> **🚀 This is a modified version optimized for Claude Code with SSH tunnel support**
-> **Original Author:** [@benborla29](https://github.com/benborla)
-> **Original Repository:** https://github.com/benborla/mcp-server-mysql
-> **License:** MIT
+> **🚀 This is a modified version optimized for Claude Code with SSH tunnel support**  
+> **Original Author:** [@benborla29](https://github.com/benborla)  
+> **Original Repository:** [https://github.com/benborla/mcp-server-mysql](https://github.com/benborla/mcp-server-mysql)  
+> **License:** MIT  
 
-# MCP Server for MySQL based on NodeJS
+## MCP Server for MySQL based on NodeJS
+
 [![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/benborla/mcp-server-mysql)](https://archestra.ai/mcp-catalog/benborla__mcp-server-mysql)
 
+### Key Features of This Fork
 
-### Key Features of This Fork:
 - ✅ **Claude Code Integration** - Optimized for use with Anthropic's Claude Code CLI
 - ✅ **SSH Tunnel Support** - Built-in support for SSH tunnels to remote databases
 - ✅ **Auto-start/stop Hooks** - Automatic tunnel management with Claude start/stop
 - ✅ **DDL Operations** - Added `MYSQL_DISABLE_READ_ONLY_TRANSACTIONS` for CREATE TABLE support
 - ✅ **Multi-Project Setup** - Easy configuration for multiple projects with different databases
 
-### Quick Start for Claude Code Users:
+### Quick Start for Claude Code Users
+
 1. **Read the Setup Guide**: See [PROJECT_SETUP_GUIDE.md](PROJECT_SETUP_GUIDE.md) for detailed instructions
 2. **Configure SSH Tunnels**: Set up automatic SSH tunnels for remote databases
 3. **Use with Claude**: Integrated MCP server works seamlessly with Claude Code
@@ -61,6 +63,23 @@ For Cursor IDE, you can install this MCP server with the following command in yo
 2. Follow the instruction for Cursor
 
 MCP Get provides a centralized registry of MCP servers and simplifies the installation process.
+
+### Codex CLI
+
+Codex CLI installation is similar to Claude Code below
+
+```bash
+codex mcp add mcp_server_mysql \
+  --env MYSQL_HOST="127.0.0.1" \
+  --env MYSQL_PORT="3306" \
+  --env MYSQL_USER="root" \
+  --env MYSQL_PASS="your_password" \
+  --env MYSQL_DB="your_database" \
+  --env ALLOW_INSERT_OPERATION="false" \
+  --env ALLOW_UPDATE_OPERATION="false" \
+  --env ALLOW_DELETE_OPERATION="false" \
+  -- npx -y @benborla29/mcp-server-mysql
+```
 
 ### Claude Code
 
@@ -301,8 +320,8 @@ If you want to clone and run this MCP server directly from the source code, foll
            "ALLOW_INSERT_OPERATION": "false",
            "ALLOW_UPDATE_OPERATION": "false",
            "ALLOW_DELETE_OPERATION": "false",
-           "PATH": "/Users/atlasborla/Library/Application Support/Herd/config/nvm/versions/node/v22.9.0/bin:/usr/bin:/bin", // <--- Important to add the following, run in your terminal `echo "$(which node)/../"` to get the path
-           "NODE_PATH": "/Users/atlasborla/Library/Application Support/Herd/config/nvm/versions/node/v22.9.0/lib/node_modules" // <--- Important to add the following, run in your terminal `echo "$(which node)/../../lib/node_modules"`
+           "PATH": "/path/to/node/bin:/usr/bin:/bin", // <--- Important to add the following, run in your terminal `echo "$(which node)/../"` to get the path
+           "NODE_PATH": "/path/to/node/lib/node_modules" // <--- Important to add the following, run in your terminal `echo "$(which node)/../../lib/node_modules"`
          }
        }
      }
@@ -502,17 +521,36 @@ For more control over the MCP server's behavior, you can use these advanced conf
 - `MYSQL_PASS`: MySQL password
 - `MYSQL_DB`: Target database name (leave empty for multi-DB mode)
 
+#### Alternative: Connection String
+
+For scenarios requiring frequent credential rotation or temporary connections, you can use a MySQL connection string instead of individual environment variables:
+
+- `MYSQL_CONNECTION_STRING`: MySQL CLI-format connection string (e.g., `mysql --default-auth=mysql_native_password -A -hHOST -PPORT -uUSER -pPASS database_name`)
+
+When `MYSQL_CONNECTION_STRING` is provided, it takes precedence over individual connection settings. This is particularly useful for:
+
+- Rotating credentials that expire frequently
+- Temporary database connections
+- Quick testing with different database configurations
+
+**Note:** For security, this should only be set via environment variables, not stored in version-controlled configuration files. Consider using the `prompt` input type in Claude Code's MCP configuration for credentials that expire.
+
 ### Performance Configuration
 
 - `MYSQL_POOL_SIZE`: Connection pool size (default: "10")
 - `MYSQL_QUERY_TIMEOUT`: Query timeout in milliseconds (default: "30000")
 - `MYSQL_CACHE_TTL`: Cache time-to-live in milliseconds (default: "60000")
+- `MYSQL_QUEUE_LIMIT`: Maximum number of queued connection requests (default: "100")
+- `MYSQL_CONNECT_TIMEOUT`: Connection timeout in milliseconds (default: "10000")
 
 ### Security Configuration
 
 - `MYSQL_RATE_LIMIT`: Maximum queries per minute (default: "100")
 - `MYSQL_MAX_QUERY_COMPLEXITY`: Maximum query complexity score (default: "1000")
 - `MYSQL_SSL`: Enable SSL/TLS encryption (default: "false")
+- `MYSQL_SSL_CA`: Path to SSL CA certificate file (PEM format). Only used when `MYSQL_SSL=true`. Required for connecting to MySQL instances with self-signed certificates or custom CAs.
+- `MYSQL_SSL_CERT`: Path to the client certificate file (PEM format) for mTLS. Only used when `MYSQL_SSL=true`. Enables mutual TLS (mTLS) authentication, where both the server and client present certificates. Required by some database configurations that enforce client certificate verification.
+- `MYSQL_SSL_KEY`: Path to the client private key file (PEM format) for mTLS. Only used when `MYSQL_SSL=true`. Must correspond to the certificate specified by `MYSQL_SSL_CERT`.
 - `ALLOW_INSERT_OPERATION`: Enable INSERT operations (default: "false")
 - `ALLOW_UPDATE_OPERATION`: Enable UPDATE operations (default: "false")
 - `ALLOW_DELETE_OPERATION`: Enable DELETE operations (default: "false")
@@ -523,6 +561,14 @@ For more control over the MCP server's behavior, you can use these advanced conf
 - `SCHEMA_DELETE_PERMISSIONS`: Schema-specific DELETE permissions
 - `SCHEMA_DDL_PERMISSIONS`: Schema-specific DDL permissions
 - `MULTI_DB_WRITE_MODE`: Enable write operations in multi-DB mode (default: "false")
+
+### Timezone and Date Configuration
+
+- `MYSQL_TIMEZONE`: Set the timezone for date/time values. Accepts formats like `+08:00` (UTC+8), `-05:00` (UTC-5), `Z` (UTC), or `local` (system timezone). Useful for ensuring consistent date/time handling across different server locations.
+- `MYSQL_DATE_STRINGS`: When set to `"true"`, returns date/datetime values as strings instead of JavaScript Date objects. This preserves the exact database values without any timezone conversion, which is particularly useful for:
+  - Applications that need precise control over date formatting
+  - Cross-timezone database operations
+  - Avoiding JavaScript Date timezone quirks
 
 ### Monitoring Configuration
 
